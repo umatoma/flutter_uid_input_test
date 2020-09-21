@@ -8,5 +8,5 @@ https://uid-input-test.herokuapp.com/
 ## Flutter inappwebviewプラグイン
 
 ChromeSafariBrowserモード
-https://github.com/pichillilorenzo/flutter_inappwebview
+https://github.com/pichillilorenzo/flutter_inappwebview#chromesafaribrowser-class
 
