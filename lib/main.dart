@@ -87,7 +87,7 @@ class _MyAppState extends State<MyApp> {
           child: RaisedButton(
               onPressed: () async {
                 await widget.browser.open(
-                    url: "https://flutter.dev/",
+                    url: "https://uid-input-test.herokuapp.com/",
                     options: ChromeSafariBrowserClassOptions(
                         android: AndroidChromeCustomTabsOptions(addDefaultShareMenuItem: false),
                         ios: IOSSafariOptions(barCollapsingEnabled: true)));
