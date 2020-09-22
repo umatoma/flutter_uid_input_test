@@ -1,108 +1,96 @@
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 class MainScreen extends StatefulWidget {
-  final ChromeSafariBrowser browser = new MyChromeSafariBrowser(
-    new MyInAppBrowser(),
-  );
-
   @override
   _MainScreenState createState() => _MainScreenState();
 }
 
 class _MainScreenState extends State<MainScreen> {
+  FirebaseMessaging _firebaseMessaging = FirebaseMessaging();
+
   @override
   void initState() {
-    widget.browser.addMenuItem(
-      new ChromeSafariBrowserMenuItem(
-        id: 1,
-        label: 'Custom item menu 1',
-        action: (url, title) {
-          print('Custom item menu 1 clicked!');
-          print(url);
-          print(title);
-        },
+    // 通知の許可をリクエスト
+    _firebaseMessaging.requestNotificationPermissions(
+      const IosNotificationSettings(
+        sound: true,
+        badge: true,
+        alert: true,
       ),
     );
-    widget.browser.addMenuItem(
-      new ChromeSafariBrowserMenuItem(
-        id: 2,
-        label: 'Custom item menu 2',
-        action: (url, title) {
-          print('Custom item menu 2 clicked!');
-          print(url);
-          print(title);
-        },
-      ),
-    );
+
     super.initState();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('ChromeSafariBrowser Example'),
-      ),
-      body: Center(
-        child: RaisedButton(
-          onPressed: () async {
-            await widget.browser.open(
-              url: 'https://uid-input-test.herokuapp.com/',
-              options: ChromeSafariBrowserClassOptions(
-                android: AndroidChromeCustomTabsOptions(
-                  addDefaultShareMenuItem: false,
-                ),
-                ios: IOSSafariOptions(
-                  barCollapsingEnabled: true,
-                ),
-              ),
-            );
-          },
-          child: Text('Open Chrome Safari Browser'),
+      body: SafeArea(
+        child: InAppWebView(
+          initialUrl: 'https://uid-input-test.herokuapp.com/',
+          initialOptions: InAppWebViewGroupOptions(
+            crossPlatform: InAppWebViewOptions(
+              useShouldInterceptAjaxRequest: true,
+              useShouldInterceptFetchRequest: true,
+              debuggingEnabled: kDebugMode,
+            ),
+          ),
+          onWebViewCreated: (controller) {},
+          onAjaxReadyStateChange: _onAjaxReadyStateChange,
         ),
       ),
     );
   }
-}
 
-class MyInAppBrowser extends InAppBrowser {
-  @override
-  Future onLoadStart(String url) async {
-    print("\n\nStarted $url\n\n");
+  // Ajaxリクエストが行われたとき
+  Future<AjaxRequestAction> _onAjaxReadyStateChange(
+    InAppWebViewController controller,
+    AjaxRequest ajaxRequest,
+  ) async {
+    try {
+      // NOTE: Turbolinksが使われていたため
+      //       onLoadStopではなくonAjaxReadyStateChangeで処理しています
+      if (ajaxRequest.readyState == AjaxRequestReadyState.DONE &&
+          ajaxRequest.status == 200 &&
+          ajaxRequest.url.endsWith('/users/new')) {
+        await _onLoadUsersNewPage(controller);
+        return AjaxRequestAction.PROCEED;
+      }
+
+      if (ajaxRequest.readyState == AjaxRequestReadyState.DONE &&
+          ajaxRequest.status == 200 &&
+          ajaxRequest.url.endsWith('/login')) {
+        await _onLoadLoginPage(controller);
+        return AjaxRequestAction.PROCEED;
+      }
+
+      return AjaxRequestAction.PROCEED;
+    } catch (e) {
+      print(e);
+      return AjaxRequestAction.ABORT;
+    }
   }
 
-  @override
-  Future onLoadStop(String url) async {
-    print("\n\nStopped $url\n\n");
+  // ユーザー登録ページが読み込まれたとき
+  Future<void> _onLoadUsersNewPage(InAppWebViewController controller) async {
+    final String name = 'user[device_token]';
+    final String token = await FirebaseMessaging().getToken();
+
+    await controller.evaluateJavascript(
+      source: 'document.getElementsByName("$name")[0].value = "$token";',
+    );
   }
 
-  @override
-  void onLoadError(String url, int code, String message) {
-    print("\n\nCan't load $url.. Error: $message\n\n");
-  }
+  // ログインページが読み込まれたとき
+  Future<void> _onLoadLoginPage(InAppWebViewController controller) async {
+    final String name = 'device_token';
+    final String token = await FirebaseMessaging().getToken();
 
-  @override
-  void onExit() {
-    print("\n\nBrowser closed!\n\n");
-  }
-}
-
-class MyChromeSafariBrowser extends ChromeSafariBrowser {
-  MyChromeSafariBrowser(browserFallback) : super(bFallback: browserFallback);
-
-  @override
-  void onOpened() {
-    print("ChromeSafari browser opened");
-  }
-
-  @override
-  void onCompletedInitialLoad() {
-    print("ChromeSafari browser initial load completed");
-  }
-
-  @override
-  void onClosed() {
-    print("ChromeSafari browser closed");
+    await controller.evaluateJavascript(
+      source: 'document.getElementsByName("$name")[0].value = "$token";',
+    );
   }
 }
