@@ -30,7 +30,7 @@ class _MainScreenState extends State<MainScreen> {
     return Scaffold(
       body: SafeArea(
         child: InAppWebView(
-          initialUrl: 'https://uid-input-test.herokuapp.com/',
+          initialUrl: 'https://www.baits.jp/',
           initialOptions: InAppWebViewGroupOptions(
             crossPlatform: InAppWebViewOptions(
               useShouldInterceptAjaxRequest: true,
