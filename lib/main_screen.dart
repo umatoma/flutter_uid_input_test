@@ -2,6 +2,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:flutter_uid_input_test/user_detail_edit_screen.dart';
 
 class MainScreen extends StatefulWidget {
   @override
@@ -53,17 +54,22 @@ class _MainScreenState extends State<MainScreen> {
     try {
       // NOTE: Turbolinksが使われていたため
       //       onLoadStopではなくonAjaxReadyStateChangeで処理しています
-      if (ajaxRequest.readyState == AjaxRequestReadyState.DONE &&
-          ajaxRequest.status == 200 &&
-          ajaxRequest.url.endsWith('/users/new')) {
+
+      // 新規登録ページ
+      if (ajaxRequest.isLoadedURL(RegExp(r'\/users\/new\/?$'))) {
         await _onLoadUsersNewPage(controller);
         return AjaxRequestAction.PROCEED;
       }
 
-      if (ajaxRequest.readyState == AjaxRequestReadyState.DONE &&
-          ajaxRequest.status == 200 &&
-          ajaxRequest.url.endsWith('/login')) {
+      // ログインページ
+      if (ajaxRequest.isLoadedURL(RegExp(r'\/login\/?$'))) {
         await _onLoadLoginPage(controller);
+        return AjaxRequestAction.PROCEED;
+      }
+
+      // ユーザー情報編集ページ
+      if (ajaxRequest.isLoadedURL(RegExp(r'\/user_details\/\d+\/edit\/?$'))) {
+        await _onLoadUserDetailsEditPage(controller);
         return AjaxRequestAction.PROCEED;
       }
 
@@ -92,5 +98,51 @@ class _MainScreenState extends State<MainScreen> {
     await controller.evaluateJavascript(
       source: 'document.getElementsByName("$name")[0].value = "$token";',
     );
+  }
+
+  // ユーザー情報編集ページが読み込まれたとき
+  Future<void> _onLoadUserDetailsEditPage(
+    InAppWebViewController controller,
+  ) async {
+    // NOTE: フォームの値が取得できるまでラグがあるので少し待つ
+    await Future.delayed(Duration(milliseconds: 100));
+
+    final String firstNameKey = 'user_detail[first_name]';
+    final String lastNameKey = 'user_detail[last_name]';
+    final String firstName = await controller.evaluateJavascript(
+      source: 'document.getElementsByName("$firstNameKey")[0].value;',
+    );
+    final String lastName = await controller.evaluateJavascript(
+      source: 'document.getElementsByName("$lastNameKey")[0].value;',
+    );
+
+    final UserDetailEditParams params = await Navigator.of(context).push(
+      MaterialPageRoute<UserDetailEditParams>(
+        builder: (_) => UserDetailEditScreen(
+          params: UserDetailEditParams(firstName, lastName),
+        ),
+      ),
+    );
+    if (params != null) {
+      await controller.evaluateJavascript(
+        source: 'document.getElementsByName("$firstNameKey")[0].value'
+            ' = "${params.firstName}";',
+      );
+      await controller.evaluateJavascript(
+        source: 'document.getElementsByName("$lastNameKey")[0].value'
+            ' = "${params.lastName}";',
+      );
+      await controller.evaluateJavascript(
+        source: 'document.getElementsByName("commit")[0].click();',
+      );
+    }
+  }
+}
+
+extension PathChecker on AjaxRequest {
+  bool isLoadedURL(RegExp match) {
+    return readyState == AjaxRequestReadyState.DONE &&
+        status == 200 &&
+        match.hasMatch(url);
   }
 }
